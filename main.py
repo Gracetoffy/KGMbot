@@ -14,6 +14,7 @@ import json
 import dateparser
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from aiohttp import web
 scheduler = AsyncIOScheduler(
     jobstores={
         "default": SQLAlchemyJobStore(url="sqlite:///jobs.db")
@@ -75,12 +76,27 @@ def save_groups(groups):
 groups = load_groups()
 
 
+async def health_check(request):
+    return web.Response(text="✅ KGM Bot is running!")
+
+async def start_web_server():
+    server = web.Application()
+    server.router.add_get("/", health_check)
+    runner = web.AppRunner(server)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"✅ Web server running on port {port}")
+
+
 
 
 
 
 
 async def post_init(application):
+    await start_web_server() 
     scheduler.start()
       # ✅ set the command menu
     await application.bot.set_my_commands([
