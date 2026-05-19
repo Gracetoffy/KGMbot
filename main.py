@@ -15,16 +15,7 @@ import dateparser
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from aiohttp import web
-scheduler = AsyncIOScheduler(
-    jobstores={
-        "default": SQLAlchemyJobStore(url="sqlite:///jobs.db")
-    },
-    job_defaults={"misfire_grace_time": 60}
-)
-os.environ["TZ"] = "Africa/Lagos"
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 
 
@@ -47,7 +38,21 @@ WAITING_FOR_ANNOUNCEMENT_TIME = 5
 WAITING_FOR_REMINDER_TARGET = 6
 
 
+from apscheduler.jobstores.mongodb import MongoDBJobStore
+from pymongo import MongoClient
 
+MONGO_URL = os.getenv("MONGO_URL")
+
+scheduler = AsyncIOScheduler(
+    jobstores={
+        "default": MongoDBJobStore(
+            client=MongoClient(MONGO_URL),
+            database="kgmbot",
+            collection="jobs"
+        )
+    },
+    job_defaults={"misfire_grace_time": 300}
+)
 
 
 
