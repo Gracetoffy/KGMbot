@@ -133,11 +133,7 @@ async def post_init(application):
             print(f"  • {job.id} — next run: {job.next_run_time}")
     else:
         print("No scheduled jobs found.")
-    for job in scheduler.get_jobs():
-        if job.next_run_time and job.next_run_time < datetime.now(job.next_run_time.tzinfo):
-            print(f"⚠️ Job {job.id} is overdue — removing it.")
-            job.remove()
-
+   
     await application.bot.set_my_commands([], scope=BotCommandScopeDefault())
     await application.bot.set_my_commands(
         commands=[
