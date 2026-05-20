@@ -63,6 +63,23 @@ db           = mongo_client["kgmbot"]
 users_col  = db["users"]
 groups_col = db["groups"]
 
+admins_col = db["admins"]
+
+def load_admins():
+    admins = [a["_id"] for a in admins_col.find()]
+    if not admins:
+        # your ID is always the default super admin
+        admins_col.insert_one({"_id": 5864151718})
+        return [5864151718]
+    return admins
+
+def save_admin(uid: int):
+    admins_col.update_one({"_id": uid}, {"$set": {"_id": uid}}, upsert=True)
+
+def remove_admin(uid: int):
+    admins_col.delete_one({"_id": uid})
+
+ADMIN_IDS = load_admins()
 
 # ── user helpers ──────────────────────────────────────────────
 def load_users():
