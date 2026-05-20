@@ -281,6 +281,7 @@ async def button_clicked(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return ConversationHandler.END
 
         all_users = list(users_col.find())
+        print(f"Loaded {len(all_users)} users for admin management.")
         if not all_users:
             await query.edit_message_text(
                 "No users registered yet.",
