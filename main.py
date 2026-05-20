@@ -56,35 +56,45 @@ request = HTTPXRequest(
     WAITING_FOR_REMINDER_TARGET,
 ) = range(1, 7)
 
-# ── data files ────────────────────────────────────────────────
-USER_FILE       = "users.json"
-GROUP_DATA_FILE = "groups.json"
+# ── mongodb client ────────────────────────────────────────────
+mongo_client = MongoClient(MONGO_URL)
+db           = mongo_client["kgmbot"]
+
+users_col  = db["users"]
+groups_col = db["groups"]
 
 
+# ── user helpers ──────────────────────────────────────────────
 def load_users():
-    if os.path.exists(USER_FILE):
-        with open(USER_FILE, "r") as f:
-            return json.load(f)
-    return {}
+    return {u["_id"]: {"name": u["name"]} for u in users_col.find()}
+
+def save_user(uid: str, name: str):
+    users_col.update_one(
+        {"_id": uid},
+        {"$set": {"name": name}},
+        upsert=True
+    )
+
+def get_all_user_ids():
+    return [u["_id"] for u in users_col.find()]
 
 
-def save_users(data):
-    with open(USER_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-
+# ── group helpers ─────────────────────────────────────────────
 def load_groups():
-    if os.path.exists(GROUP_DATA_FILE):
-        with open(GROUP_DATA_FILE, "r") as f:
-            return json.load(f)
-    return {}
+    return {g["_id"]: g["name"] for g in groups_col.find()}
+
+def save_group(gid: str, name: str):
+    groups_col.update_one(
+        {"_id": gid},
+        {"$set": {"name": name}},
+        upsert=True
+    )
+
+def get_all_group_ids():
+    return [g["_id"] for g in groups_col.find()]
 
 
-def save_groups(data):
-    with open(GROUP_DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-
+# ── load on startup ───────────────────────────────────────────
 users  = load_users()
 groups = load_groups()
 
@@ -152,7 +162,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if uid not in users:
         users[uid] = {"name": name}
-        save_users(users)
+        save_user(uid, name)
         print(f"New user registered: {name} (ID: {uid})")
 
     if user.id in ADMIN_IDS:
@@ -173,9 +183,9 @@ async def receive_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target  = context.user_data.get("target", "ALL")
 
     if target == "ALL":
-        chat_ids = [int(gid) for gid in groups.keys()]
+        chat_ids = [int(gid) for gid in get_all_group_ids()] 
     elif target == "DM":
-        chat_ids = [int(uid) for uid in users.keys()]
+        chat_ids = [int(uid) for uid in get_all_user_ids()]
     else:
         chat_ids = [int(target)]
 
@@ -205,7 +215,7 @@ async def bot_added(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     groups[str(chat.id)] = chat.title
-    save_groups(groups)
+    save_group(str(chat.id), chat.title)
     print(f"New group registered: {chat.title} ({chat.id})")
 
     await context.bot.send_message(
@@ -414,12 +424,12 @@ async def receive_reminder_target(update: Update, context: ContextTypes.DEFAULT_
     scheduled     = []
 
     if target == "ALL":
-        chat_ids = [int(gid) for gid in groups.keys()]
+        chat_ids = [int(gid) for gid in get_all_group_ids()]
     elif target == "DM":
-        chat_ids = [int(uid) for uid in users.keys()]
+        chat_ids = [int(uid) for uid in get_all_user_ids()]
     else:
-        chat_ids = [int(gid) for gid in groups.keys()] + \
-                   [int(uid) for uid in users.keys()]
+        chat_ids = [int(gid) for gid in get_all_group_ids()] + \
+                   [int(uid) for uid in get_all_user_ids()]
 
     for i, a in enumerate(announcements):
         run_time = dateparser.parse(
