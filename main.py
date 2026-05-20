@@ -106,6 +106,8 @@ def main_menu():
         [InlineKeyboardButton("⏰ Set Meeting Reminders",     callback_data="set_reminders")],
         [InlineKeyboardButton("📋 View Scheduled Reminders",  callback_data="view_reminders")],
         [InlineKeyboardButton("👥 List Groups",               callback_data="list_groups")],
+        [InlineKeyboardButton("👤 Manage Admins",             callback_data="manage_admins")],  # ✅
+
     ])
 
 
@@ -252,7 +254,78 @@ async def button_clicked(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return WAITING_FOR_GROUP_SELECTION
+    elif query.data == "manage_admins":
+    # only super admin can access this
+        if update.effective_user.id != 5864151718:
+            await query.edit_message_text(
+                "⛔ Only the super admin can manage admins.",
+                reply_markup=back_button()
+            )
+            return ConversationHandler.END
 
+        all_users = list(users_col.find())
+        if not all_users:
+            await query.edit_message_text(
+                "No users registered yet.",
+                reply_markup=back_button()
+        )
+            return ConversationHandler.END
+
+        keyboard = []
+        for u in all_users:
+            uid  = u["_id"]
+            name = u["name"]
+            if uid == 5864151718:
+                continue  # skip yourself
+            if int(uid) in ADMIN_IDS:
+                keyboard.append([InlineKeyboardButton(
+                    f"❌ Remove {name} as admin",
+                    callback_data=f"removeadmin_{uid}"
+                )])
+            else:
+                keyboard.append([InlineKeyboardButton(
+                    f"➕ Make {name} admin",
+                    callback_data=f"addadmin_{uid}"
+                )])
+
+        keyboard.append([InlineKeyboardButton("🏠 Back to Menu", callback_data="back_to_menu")])
+
+        lines = []
+        for u in all_users:
+            is_admin = int(u["_id"]) in ADMIN_IDS
+            lines.append(f"{'✅' if is_admin else '👤'} {u['name']} (ID: {u['_id']})")
+
+        await query.edit_message_text(
+            f"👤 Manage Admins:\n\n" + "\n".join(lines) + "\n\nTap to add or remove:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return ConversationHandler.END
+
+    elif query.data.startswith("addadmin_"):
+        uid  = int(query.data.replace("addadmin_", ""))
+        name = users.get(str(uid), {}).get("name", "Unknown")
+        if uid not in ADMIN_IDS:
+            ADMIN_IDS.append(uid)
+            save_admin(uid)
+        await query.edit_message_text(
+            f"✅ {name} is now an admin!",
+            reply_markup=back_button()
+        )
+        return ConversationHandler.END
+
+    elif query.data.startswith("removeadmin_"):
+        uid  = int(query.data.replace("removeadmin_", ""))
+        name = users.get(str(uid), {}).get("name", "Unknown")
+        if uid in ADMIN_IDS:
+            ADMIN_IDS.remove(uid)
+            remove_admin(uid)
+        await query.edit_message_text(
+            f"✅ {name} has been removed as admin.",
+            reply_markup=back_button()
+        )
+        return ConversationHandler.END  
+
+       
     elif query.data.startswith("group_"):
         target = query.data.replace("group_", "")
         context.user_data["target"] = target
@@ -299,6 +372,8 @@ async def button_clicked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
+    
+
     elif query.data.startswith("canceljob_"):
         job_id = query.data.replace("canceljob_", "")
         job    = scheduler.get_job(job_id)
@@ -324,6 +399,7 @@ async def button_clicked(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu()
         )
         return ConversationHandler.END
+    
 
 
 # ── reminder count ────────────────────────────────────────────
