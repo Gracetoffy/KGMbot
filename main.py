@@ -155,6 +155,23 @@ async def post_init(application):
     await start_web_server()
     scheduler.start()
 
+    if os.path.exists("users.json"):
+        with open("users.json","r") as f :
+            local_users = json.load(f)
+        for uid, info in local_users.items():
+            save_user(uid, info["name"])
+        print(f"✅ Loaded {len(local_users)} users from local JSON file.")
+
+
+    if os.path.exists("groups.json"): 
+        with open("groups.json","r") as f :
+            local_groups = json.load(f)
+        for gid, name in local_groups.items():
+            save_group(gid, name)
+        print(f"Synced {len(local_groups)} groups from local JSON file to MongoDB.")
+    global users,groups
+    users = load_users()
+    groups = load_groups()
     jobs = scheduler.get_jobs()
     if jobs:
         print(f"✅ Reloaded {len(jobs)} scheduled job(s)")
