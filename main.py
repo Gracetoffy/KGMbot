@@ -123,8 +123,8 @@ def main_menu():
         [InlineKeyboardButton("⏰ Set Meeting Reminders",     callback_data="set_reminders")],
         [InlineKeyboardButton("📋 View Scheduled Reminders",  callback_data="view_reminders")],
         [InlineKeyboardButton("👥 List Groups",               callback_data="list_groups")],
-        [InlineKeyboardButton("👤 Manage Admins",             callback_data="manage_admins")]
-
+        [InlineKeyboardButton("👤 Manage Admins",             callback_data="manage_admins")],
+        [InlineKeyboardButton("👤View Users", callback_data="view_users")]
     ])
 
 
@@ -380,6 +380,27 @@ async def button_clicked(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines = [f"• {name}  (ID: {gid})" for gid, name in groups.items()]
         await query.edit_message_text(
             f"👥 Registered Groups ({len(groups)}):\n\n" + "\n".join(lines),
+            reply_markup=back_button()
+        )
+        return ConversationHandler.END
+    
+    elif query.data == "view_users":
+        if update.effective_user.id not in ADMIN_IDS:
+            await query.edit_message_text("⛔ You are not authorized.")
+            return ConversationHandler.END
+        all_users = list(users_col.find())
+        if not all_users:
+            await query.edit_message_text("No users registered yet.", reply_markup=back_button())
+            return ConversationHandler.END
+        lines = []
+        text= f"👤 Registered Users ({len(all_users)}):\n\n" + "\n".join(lines)
+        if len(text) > 4000:
+            text = text[:4000] + "\n\n…(list truncated)"
+        for u in all_users:
+            is_admin = int(u["_id"]) in ADMIN_IDS
+            lines.append(f"{'✅' if is_admin else '👤'} {u['name']} (ID: {u['_id']})")
+        await query.edit_message_text(
+          text,
             reply_markup=back_button()
         )
         return ConversationHandler.END
