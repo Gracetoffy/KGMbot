@@ -123,7 +123,7 @@ def main_menu():
         [InlineKeyboardButton("⏰ Set Meeting Reminders",     callback_data="set_reminders")],
         [InlineKeyboardButton("📋 View Scheduled Reminders",  callback_data="view_reminders")],
         [InlineKeyboardButton("👥 List Groups",               callback_data="list_groups")],
-        [InlineKeyboardButton("👤 Manage Admins",             callback_data="manage_admins")],  # ✅
+        [InlineKeyboardButton("👤 Manage Admins",             callback_data="manage_admins")]
 
     ])
 
@@ -270,6 +270,9 @@ async def list_groups_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     lines = [f"• {name}  (ID: {gid})" for gid, name in groups.items()]
     await update.message.reply_text("👥 Registered groups:\n\n" + "\n".join(lines))
+
+
+    
 
 
 # ── button click handler ──────────────────────────────────────
@@ -614,7 +617,8 @@ conv_handler = ConversationHandler(
         WAITING_FOR_ANNOUNCEMENT_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_announcement_time)],
         WAITING_FOR_REMINDER_TARGET:   [CallbackQueryHandler(receive_reminder_target, pattern="^rtarget_")],
     },
-    fallbacks=[CommandHandler("cancel", cancel)]
+    fallbacks=[CommandHandler("cancel", cancel)],
+    allow_reentry=True
 )
 
 # ── app ───────────────────────────────────────────────────────
