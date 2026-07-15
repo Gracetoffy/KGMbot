@@ -393,12 +393,15 @@ async def button_clicked(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("No users registered yet.", reply_markup=back_button())
             return ConversationHandler.END
         lines = []
-        text= f"👤 Registered Users ({len(all_users)}):\n\n" + "\n".join(lines)
-        if len(text) > 4000:
-            text = text[:4000] + "\n\n…(list truncated)"
         for u in all_users:
             is_admin = int(u["_id"]) in ADMIN_IDS
             lines.append(f"{'✅' if is_admin else '👤'} {u['name']} (ID: {u['_id']})")
+
+        text = f"👤 Registered Users ({len(all_users)}):\n\n" + "\n".join(lines)
+
+        if len(text) > 4000:
+            text = text[:4000] + "\n\n…(list truncated)"
+    
         await query.edit_message_text(
           text,
             reply_markup=back_button()
@@ -541,9 +544,9 @@ async def receive_announcement_time(update: Update, context: ContextTypes.DEFAUL
         f"📋 Summary:\n{summary}\n\n"
         f"👥 Who should receive these?",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📣 All Groups",  callback_data="rtarget_ALL")],
-            [InlineKeyboardButton("👤 Send to DMs", callback_data="rtarget_DM")],
-            [InlineKeyboardButton("📣👤 Both",       callback_data="rtarget_EVERYONE")],
+            [InlineKeyboardButton("All Groups",  callback_data="rtarget_ALL")],
+            [InlineKeyboardButton("Send to DMs", callback_data="rtarget_DM")],
+            [InlineKeyboardButton("Both",       callback_data="rtarget_EVERYONE")],
         ])
     )
     return WAITING_FOR_REMINDER_TARGET
@@ -629,7 +632,8 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 # ── conversation handler ──────────────────────────────────────
 conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(button_clicked)],
+    entry_points=[CallbackQueryHandler(button_clicked,
+                                       pattern="^(broadcast|set_reminders|view_reminders|list_groups|manage_admins|view_users|back_to_menu|group_|addadmin_|removeadmin_|canceljob_)$")],
     states={
         WAITING_FOR_GROUP_SELECTION:   [CallbackQueryHandler(button_clicked)],
         WAITING_FOR_MESSAGE:           [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_message)],
