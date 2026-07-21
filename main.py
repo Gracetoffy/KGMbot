@@ -216,6 +216,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── broadcast message ─────────────────────────────────────────
 async def receive_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message.text
+
+    photo = update.message.photo[-1] if update.message.photo else None
+    caption = update.message.caption if update.message.caption else None
     target  = context.user_data.get("target", "ALL")
 
     if target == "ALL":
@@ -227,8 +230,12 @@ async def receive_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     sent = failed = 0
     for chat_id in chat_ids:
+
         try:
-            await context.bot.send_message(chat_id=chat_id, text=message)
+            if photo:
+                await context.bot.send_photo(chat_id=chat_id, photo=photo.file_id, caption=caption)
+            else:
+                await context.bot.send_message(chat_id=chat_id, text=message)
             sent += 1
         except Exception as e:
             failed += 1
@@ -485,8 +492,19 @@ async def receive_reminder_count(update: Update, context: ContextTypes.DEFAULT_T
 # ── announcement text ─────────────────────────────────────────
 async def receive_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE):
     index = context.user_data["current_reminder_index"]
-    context.user_data["current_announcement_text"] = update.message.text
+    photo= update.message.photo
+    
+    if photo:
+        context.user_data["current_announcement_photo"] = photo[-1].file_id
+        context.user_data["current_announcement_text"] = update.message.caption or ""
+    else:
+        context.user_data["current_announcement_photo"] = None
+        context.user_data["current_announcement_text"] = update.message.text
 
+
+
+
+   
     await update.message.reply_text(
         f"🕐 When should announcement {index + 1} be sent?\n\n"
         "Use 24hr time or specify AM/PM:\n"
@@ -524,8 +542,9 @@ async def receive_announcement_time(update: Update, context: ContextTypes.DEFAUL
     index       = context.user_data["current_reminder_index"]
     count       = context.user_data["reminder_count"]
     text        = context.user_data["current_announcement_text"]
+    photo       = context.user_data["current_announcement_photo"]
 
-    context.user_data["announcements"].append({"text": text, "time": time_str, "display": display_str})
+    context.user_data["announcements"].append({"text": text,"photo":photo, "time": time_str, "display": display_str})
     context.user_data["current_reminder_index"] = index + 1
 
     if index + 1 < count:
@@ -583,7 +602,7 @@ async def receive_reminder_target(update: Update, context: ContextTypes.DEFAULT_
             run_date=run_time,
             id=f"announcement_{run_time.strftime('%Y%m%d%H%M')}_{i}",
             replace_existing=True,
-            args=[chat_ids, a["text"]]
+            args=[chat_ids, a["text"],a.get("photo")]
         )
         scheduled.append(
             f"• {a['display']} → {a['text'][:40]}{'...' if len(a['text']) > 40 else ''}"
@@ -602,12 +621,15 @@ async def receive_reminder_target(update: Update, context: ContextTypes.DEFAULT_
 
 
 # ── send announcement job ─────────────────────────────────────
-async def send_announcement(chat_ids: list, text: str):
+async def send_announcement(chat_ids: list, text: str, photo: str = None):
     bot = Bot(token=BOT_TOKEN)
     async with bot:
         for chat_id in chat_ids:
             try:
-                await bot.send_message(chat_id=chat_id, text=text)
+                if photo:
+                    await bot.send_photo(chat_id=chat_id, photo=photo, caption=text)
+                else:
+                    await bot.send_message(chat_id=chat_id, text=text)
             except Exception as e:
                 print(f"Failed to send to {chat_id}: {e}")
 
@@ -636,10 +658,10 @@ conv_handler = ConversationHandler(
                                        pattern="^(broadcast|set_reminders|view_reminders|list_groups|manage_admins|view_users|back_to_menu|group_|addadmin_|removeadmin_|canceljob_)$")],
     states={
         WAITING_FOR_GROUP_SELECTION:   [CallbackQueryHandler(button_clicked)],
-        WAITING_FOR_MESSAGE:           [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_message)],
+        WAITING_FOR_MESSAGE:           [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, receive_message)],
         WAITING_FOR_REMINDER_COUNT:    [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_reminder_count)],
         WAITING_FOR_ANNOUNCEMENT:      [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_announcement)],
-        WAITING_FOR_ANNOUNCEMENT_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_announcement_time)],
+        WAITING_FOR_ANNOUNCEMENT_TIME: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, receive_announcement_time)],
         WAITING_FOR_REMINDER_TARGET:   [CallbackQueryHandler(receive_reminder_target, pattern="^rtarget_")],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
